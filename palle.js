@@ -30,7 +30,6 @@ function getMousePos(event) {
 document.onmousemove = function(e){ 
     if(clicked){
         let vector = new Vector( -(getMousePos(e).x - startx)/10,-(getMousePos(e).y - starty)/10);
-        console.log(vector);
         vector.draw(startx, starty, 100);
     }  
 } 
@@ -65,6 +64,36 @@ function resizeCanvas(){
 
 function roundNum(num, dec) {
     return Math.round(num * Math.pow(10, dec)) / Math.pow(10, dec);
+}
+
+function RectCircleColliding(circle,rect){
+    var distX = Math.abs(circle.x - rect.x-rect.width/2);
+    var distY = Math.abs(circle.y - rect.y-rect.height/2);
+
+    if (distX > (rect.width/2 + circle.r)) { return false; }
+    if (distY > (rect.height/2 + circle.r)) { return false; }
+
+    if (distX <= (rect.width/2)) { return true; } 
+    if (distY <= (rect.height/2)) { return true; }
+
+    var dx=distX-rect.width/2;
+    var dy=distY-rect.height/2;
+    return (dx*dx+dy*dy<=(circle.r*circle.r));
+}
+
+class Obstacle {
+    constructor(x, y, width, height) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+    }
+
+    // Method to draw the obstacle
+    draw() {
+        ctx.fillStyle = 'blue';
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
 }
 
 class Vector{
@@ -157,10 +186,13 @@ class Vector{
 
 
 class Palla{
-    constructor(x, y, r) {
+    constructor(x, y, r, bounciness) {
         this.x = x
         this.y = y
         this.r = r
+        this.prevx = x;
+        this.prevy = y;
+        this.bounciness = bounciness
         this.speed = {x: 0, y: 0};
     }
     show() {
@@ -170,12 +202,17 @@ class Palla{
        ctx.fill();
     }
     movex(x){
+        this.prevx = this.x
         this.x += x
+        
     }
     movey(y){
+        this.prevy = this.y
         this.y += y
     }
     move(vector){
+        this.prevx = this.x
+        this.prevy = this.y
         this.x += vector.x
         this.y += vector.y
     }
@@ -201,6 +238,47 @@ class Palla{
             playSound(boing);
         }
     }
+    handleObstacleCollision(obstacle) {
+        // Check for collision with the obstacle
+        if (RectCircleColliding(this, obstacle)) {
+            // Collision detected, respond accordingly
+            // Calculate penetration depth
+            let dx = ((this.x + this.r) - obstacle.x);
+            let dy = ((this.y + this.r) - obstacle.y);
+            let penetrationX = Math.max(dx, 0);
+            let penetrationY = Math.max(dy, 0);
+
+            // Move the ball outside the obstacle
+                if (this.prevx < obstacle.x) {
+                    this.x -= penetrationX; // Move left
+                    this.speed.x *= -this.bounciness; // Reverse x directio
+                    console.log("left")
+                } else if(this.prevx>obstacle.width+obstacle.x) {
+                    penetrationX = this.r-this.x+obstacle.x+obstacle.width
+                    console.log("penetrationX", penetrationX)
+                    this.x += penetrationX; // Move right
+                    this.speed.x *= -this.bounciness; // Reverse x directio
+                    console.log("right")
+                }
+                
+                //console.log(this.y)
+                if (this.prevy < obstacle.y) {
+                    console.log("up")
+                    this.y -= penetrationY; // Move up
+                    this.speed.y *= -this.bounciness; // Reverse y direction
+                } else if(this.prevy > obstacle.y+obstacle.height){
+                    penetrationY = (this.r-this.y+obstacle.y+obstacle.height)
+                    console.log("penetrationX", penetrationX)
+                    this.y += penetrationY; // Move down
+                    console.log("down")
+                    this.speed.y *= -this.bounciness; // Reverse y direction
+                }
+                console.log(this.y)
+                
+            
+        }
+    }
+    
     gravity(){
         if(this.y < canvas.height - this.r){
             this.speed.y += 9.8*1/fps
@@ -223,8 +301,7 @@ class Palla{
     handle(){
         this.gravity();
         this.friction();
-        this.bounce(0.8);
-        this.show();
+        
         if(Math.abs(this.speed.x) > 0.2){
             this.movex(this.speed.x);
         }else{
@@ -235,16 +312,30 @@ class Palla{
         }else if(Math.abs(this.y - (canvas.height - this.r))<1){
             this.speed.y = 0;
         }
+        this.bounce(this.bounciness);
+        obstacles.forEach(obstacle => {
+            this.handleObstacleCollision(obstacle); // Assuming you have a draw method for obstacles
+        });
+        this.show();
+        
     }
 }
 
-let palla1 = new Palla(canvas.width/8, canvas.height-50, 30)
+let palla1 = new Palla(canvas.width/8, canvas.height-50, 30, 0.8)
+let obstacles = []
+obstacles[0] = new Obstacle(200, 200, 200, 100);
+obstacles[1] =  new Obstacle(600, 200, 100, 20);
+obstacles[2] = new Obstacle(900, 300, 5, 100)
+obstacles[3] = new Obstacle(1000, 300, 5, 100)
 
 
 let vector = {x: 0, y: 0}
 palla1.speed = vector;
 setInterval(() => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    obstacles.forEach(obstacle => {
+        obstacle.draw(); // Assuming you have a draw method for obstacles
+    });
     palla1.handle();
 }, 1000/fps)
 
