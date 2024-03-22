@@ -60,7 +60,59 @@ function resizeCanvas(){
     canvas.width = window.width
 }
 
- 
+// LINE/RECTANGLE
+class Vector {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+    
+    mag() {
+        return Math.sqrt(this.x * this.x + this.y * this.y);
+    }
+}
+
+function lineRect(x1, y1, x2, y2, rx, ry, rw, rh) {
+    let vector = new Vector(Infinity, Infinity);
+
+    function updateVector(intersectionX, intersectionY) {
+        const newVector = new Vector(Math.abs(x1 - intersectionX), Math.abs(y1 - intersectionY));
+        if (newVector.mag() < vector.mag()) {
+            vector = newVector;
+        }
+    }
+
+    function checkIntersection(x3, y3, x4, y4) {
+        const [isIntersecting, intersectionX, intersectionY] = lineLine(x1, y1, x2, y2, x3, y3, x4, y4);
+        if (isIntersecting) {
+            updateVector(intersectionX, intersectionY);
+            return true;
+        }
+        return false;
+    }
+
+    if (checkIntersection(rx, ry, rx, ry + rh) ||
+        checkIntersection(rx, ry, rx + rw, ry) ||
+        checkIntersection(rx + rw, ry, rx + rw, ry + rh) ||
+        checkIntersection(rx, ry + rh, rx + rw, ry + rh)) {
+        return vector;
+    }
+    return false;
+}
+
+function lineLine(x1, y1, x2, y2, x3, y3, x4, y4) {
+    const uA = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / ((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1));
+    const uB = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / ((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1));
+
+    if (uA >= 0 && uA <= 1 && uB >= 0 && uB <= 1) {
+        const intersectionX = x1 + uA * (x2 - x1);
+        const intersectionY = y1 + uA * (y2 - y1);
+        return [true, intersectionX, intersectionY];
+    }
+    return [false, 0, 0];
+}
+
+  
 
 function roundNum(num, dec) {
     return Math.round(num * Math.pow(10, dec)) / Math.pow(10, dec);
@@ -112,6 +164,7 @@ class Vector{
     mult(s){
         this.x *= s;
         this.y *= s;
+        return this;
     }
     div(s){
         this.x /= s;
@@ -125,6 +178,7 @@ class Vector{
         if(m != 0){
             this.div(m);
         }
+        return this
     }
     limit(max){
         if(this.mag() > max){
@@ -150,6 +204,7 @@ class Vector{
         let newy = this.x * Math.sin(a) + this.y * Math.cos(a);
         this.x = newx;
         this.y = newy;
+        return this
     }
     dot(v){
         return this.x * v.x + this.y * v.y;
@@ -193,7 +248,7 @@ class Palla{
         this.prevx = x;
         this.prevy = y;
         this.bounciness = bounciness
-        this.speed = {x: 0, y: 0};
+        this.speed = new Vector( 0, 0);
     }
     show() {
        ctx.beginPath();
@@ -238,44 +293,39 @@ class Palla{
             playSound(boing);
         }
     }
-    handleObstacleCollision(obstacle) {
+    handleObstacleCollision(rect) {
         // Check for collision with the obstacle
-        if (RectCircleColliding(this, obstacle)) {
-            // Collision detected, respond accordingly
-            // Calculate penetration depth
-            let dx = ((this.x + this.r) - obstacle.x);
-            let dy = ((this.y + this.r) - obstacle.y);
-            let penetrationX = Math.max(dx, 0);
-            let penetrationY = Math.max(dy, 0);
+        if (RectCircleColliding(this, rect)) {
+            let NearestX = Math.max(rect.x, Math.min(this.x+1, rect.x + rect.width));
+            let NearestY = Math.max(rect.y, Math.min(this.y+1, rect.y + rect.height));
 
-            // Move the ball outside the obstacle
-                if (this.prevx < obstacle.x) {
-                    this.x -= penetrationX; // Move left
-                    this.speed.x *= -this.bounciness; // Reverse x directio
-                    console.log("left")
-                } else if(this.prevx>obstacle.width+obstacle.x) {
-                    penetrationX = this.r-this.x+obstacle.x+obstacle.width
-                    console.log("penetrationX", penetrationX)
-                    this.x += penetrationX; // Move right
-                    this.speed.x *= -this.bounciness; // Reverse x directio
-                    console.log("right")
-                }
-                
-                //console.log(this.y)
-                if (this.prevy < obstacle.y) {
-                    console.log("up")
-                    this.y -= penetrationY; // Move up
-                    this.speed.y *= -this.bounciness; // Reverse y direction
-                } else if(this.prevy > obstacle.y+obstacle.height){
-                    penetrationY = (this.r-this.y+obstacle.y+obstacle.height)
-                    console.log("penetrationX", penetrationX)
-                    this.y += penetrationY; // Move down
-                    console.log("down")
-                    this.speed.y *= -this.bounciness; // Reverse y direction
-                }
-                console.log(this.y)
-                
+            console.log("x",this.x, NearestX)
+            console.log("y", this.y, NearestY)
+            let dist = new Vector(this.x - NearestX, this.y - NearestY);
+            console.log("dist",dist)
+            let dnormal = new Vector(-dist.y, dist.x);
+            //if (dist.dot({x: this.x, y:this.y}) < 0) { 
+                let normal_angle = Math.atan2(dnormal.y, dnormal.x);
+                let incoming_angle = Math.atan2(this.speed.y, this.speed.x);
+                let theta = normal_angle - incoming_angle;
+                this.speed = this.speed.rotate(2*theta).mult(this.bounciness);
+            //}
             
+            
+            let penetrationDepth = this.r - dist.mag();
+            console.log("dist", dist)
+            console.log("norma", dist.mag())
+            //console.log("penetrationDepth", penetrationDepth);
+            //console.log("normalizzato", dist.normalize())
+            let penetrationVector = dist.normalize().mult(penetrationDepth);
+            console.log("dist2", dist);
+            console.log( "penetration", penetrationVector)
+            //console.log("x, y", this.x, this.y);
+            this.x += penetrationVector.x
+            this.y += penetrationVector.y
+            //console.log("x, y", this.x, this.y);
+            console.log("dist3", dist);
+
         }
     }
     
@@ -321,15 +371,15 @@ class Palla{
     }
 }
 
-let palla1 = new Palla(canvas.width/8, canvas.height-50, 30, 0.8)
+let palla1 = new Palla(canvas.width/8, canvas.height-50, 30, 0.6)
 let obstacles = []
 obstacles[0] = new Obstacle(200, 200, 200, 100);
-obstacles[1] =  new Obstacle(600, 200, 100, 20);
+ obstacles[1] =  new Obstacle(600, 200, 100, 20);
 obstacles[2] = new Obstacle(900, 300, 5, 100)
-obstacles[3] = new Obstacle(1000, 300, 5, 100)
+obstacles[3] = new Obstacle(1000, 250, 5, 150)
 
 
-let vector = {x: 0, y: 0}
+let vector = new Vector(0, 0);
 palla1.speed = vector;
 setInterval(() => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
