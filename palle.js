@@ -108,10 +108,12 @@ function lineLine(x1, y1, x2, y2, x3, y3, x4, y4) {
     if (uA >= 0 && uA <= 1 && uB >= 0 && uB <= 1) {
         const intersectionX = x1 + uA * (x2 - x1);
         const intersectionY = y1 + uA * (y2 - y1);
+        /*
         ctx.color = "black";
         ctx.beginPath();
         ctx.arc(intersectionX, intersectionY, 10, 0, 2 * Math.PI);
         ctx.stroke();
+        */
         return [true, intersectionX, intersectionY];
     }
     return [false, 0, 0];
@@ -335,7 +337,7 @@ class Palla{
             }
 
             if(this.speed.mag() > 1) {
-                playSound(boing);
+                playSound(boing     );
             }   
 
         
@@ -351,9 +353,22 @@ class Palla{
             
             let penetrationDepth = this.r - dist.mag();
             let penetrationVector = dist.normalize().mult(penetrationDepth);
+
             let unstick = 0.3;
-            this.x += penetrationVector.x+ (penetrationVector.x > 0 ? unstick : -unstick);
-            this.y += penetrationVector.y+ (penetrationVector.y > 0 ? unstick : -unstick);
+            let unstickx = unstick;
+            let unsticky = unstick;
+            if(penetrationVector.x == 0){ 
+                unstickx = 0
+            }else if(penetrationVector.x < 0){
+                unstickx = -unstick
+            }
+            if(penetrationVector.y == 0){ 
+                unsticky = 0
+            }else if(penetrationVector.y < 0){
+                unsticky = -unstick
+            }
+            this.x += penetrationVector.x+unstickx;
+            this.y += penetrationVector.y+unsticky;
         
         }
     }
@@ -396,9 +411,9 @@ class Palla{
         let start = new Vector(this.x+expectedMove.copy().normalize().mult(this.r).x, this.y+expectedMove.copy().normalize().mult(this.r).y)
         let start1 = new Vector(this.x+normalPosition1.x, this.y + normalPosition1.y);
         let start2 = new Vector(this.x+normalPosition2.x, this.y + normalPosition2.y);
-        this.speed.drawline(start.x, start.y)
-        this.speed.drawline(start1.x, start1.y)
-        this.speed.drawline(start2.x, start2.y)
+        //this.speed.drawline(start.x, start.y)
+        //this.speed.drawline(start1.x, start1.y)
+        //this.speed.drawline(start2.x, start2.y)
         let move = expectedMove.copy();
         obstacles.forEach(obstacle => {
             // Calculate potential movement vectors
@@ -430,7 +445,7 @@ class Palla{
         }
          
 
-        if(Math.abs(this.speed.x) > 0.1){
+        if(Math.abs(this.speed.x) > 0.01){
             this.movex(expectedMove.x);
         }else{
             this.speed.x = 0;
