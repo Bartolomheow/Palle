@@ -95,7 +95,6 @@ function lineRect(x1, y1, x2, y2, rx, ry, rw, rh) {
         checkIntersection(rx, ry + rh, rx + rw, ry + rh)) {
         console.log(vector);
 
-        vector.drawline(palla1.x, palla1.y, "green");
         return vector;
     }
     return false;
