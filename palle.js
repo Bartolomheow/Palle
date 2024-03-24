@@ -1,7 +1,7 @@
 canvas = document.getElementById('canvas');
 ctx = canvas.getContext('2d');
-canvas.height = window.innerHeight*0.9;
-canvas.width = window.innerWidth*0.8;
+canvas.height = 600;
+canvas.width = 800;
 window.addEventListener('mousedown', handleMouseDown);
 window.addEventListener('mouseup', handleMouseUp);
 
