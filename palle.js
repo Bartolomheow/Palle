@@ -9,9 +9,17 @@ let boing = new Audio("ball-bounce-94853.mp3");
 boing.volume = 0.5;
 
 
-function playSound(sound){
-    sound.cloneNode(true).play();
-} 
+function playSound(sound, volume = 0.5) {
+    // Create a clone of the sound
+    const soundClone = sound.cloneNode();
+    
+    // Set the volume of the cloned sound
+    soundClone.volume = volume;
+    
+    // Play the cloned sound
+    soundClone.play();
+}
+
 
 let fps = 60;
 
@@ -60,23 +68,13 @@ function resizeCanvas(){
     canvas.width = window.width
 }
 
-// LINE/RECTANGLE
-class Vector {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
-    }
-    
-    mag() {
-        return Math.sqrt(this.x * this.x + this.y * this.y);
-    }
-}
+
 
 function lineRect(x1, y1, x2, y2, rx, ry, rw, rh) {
     let vector = new Vector(Infinity, Infinity);
 
     function updateVector(intersectionX, intersectionY) {
-        const newVector = new Vector(Math.abs(x1 - intersectionX), Math.abs(y1 - intersectionY));
+        const newVector = new Vector(intersectionX-x1,intersectionY-y1);
         if (newVector.mag() < vector.mag()) {
             vector = newVector;
         }
@@ -95,6 +93,9 @@ function lineRect(x1, y1, x2, y2, rx, ry, rw, rh) {
         checkIntersection(rx, ry, rx + rw, ry) ||
         checkIntersection(rx + rw, ry, rx + rw, ry + rh) ||
         checkIntersection(rx, ry + rh, rx + rw, ry + rh)) {
+        console.log(vector);
+
+        vector.drawline(palla1.x, palla1.y, "green");
         return vector;
     }
     return false;
@@ -107,6 +108,10 @@ function lineLine(x1, y1, x2, y2, x3, y3, x4, y4) {
     if (uA >= 0 && uA <= 1 && uB >= 0 && uB <= 1) {
         const intersectionX = x1 + uA * (x2 - x1);
         const intersectionY = y1 + uA * (y2 - y1);
+        ctx.color = "black";
+        ctx.beginPath();
+        ctx.arc(intersectionX, intersectionY, 10, 0, 2 * Math.PI);
+        ctx.stroke();
         return [true, intersectionX, intersectionY];
     }
     return [false, 0, 0];
@@ -139,6 +144,7 @@ class Obstacle {
         this.y = y;
         this.width = width;
         this.height = height;
+        this.hit = false;
     }
 
     // Method to draw the obstacle
@@ -153,13 +159,18 @@ class Vector{
         this.x = x;
         this.y = y;
     }
+    equals(v){
+        return this.x == v.x && this.y == v.y
+    }
     add(v){
         this.x += v.x;
         this.y += v.y;
+        return this
     }
     sub(v){
         this.x -= v.x;
         this.y -= v.y;
+        return this
     }
     mult(s){
         this.x *= s;
@@ -169,6 +180,7 @@ class Vector{
     div(s){
         this.x /= s;
         this.y /= s;
+        return this
     }
     mag(){
         return Math.sqrt(this.x**2 + this.y**2);
@@ -190,11 +202,12 @@ class Vector{
         return Math.sqrt((this.x - v.x)**2 + (this.y - v.y)**2);
     }
     copy(){
-        return new vector(this.x, this.y);
+        return new Vector(this.x, this.y);
     }
     set(x, y){
         this.x = x;
         this.y = y;
+        return this
     }
     angle(){
         return Math.atan2(this.y, this.x);
@@ -228,6 +241,12 @@ class Vector{
         reflected.sub(n);
         return reflected;
     }
+    normal1(){
+        return new Vector(-this.y, this.x)
+    }
+    normal2(){
+        return new Vector(this.y, -this.x)        
+    }
     draw(x, y){
         let arrow = document.getElementById('arrow');
         arrow.style.display = 'block';
@@ -236,6 +255,16 @@ class Vector{
         arrow.style.left = x + 'px';
         arrow.style.top = (y - (this.mag() + 50)/2) + 'px';
         arrow.style.transform = 'rotate(' + (Math.atan2(this.y, this.x) * 180 / Math.PI) + 'deg)';
+    }
+    drawline(x, y, color = "black"){
+        //console.log("ho disegnato");
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x+this.x, y+this.y);
+        ctx.stroke();
+        //console.log("end", x+this.x,y+this.y)
     }
 }
 
@@ -259,11 +288,13 @@ class Palla{
     movex(x){
         this.prevx = this.x
         this.x += x
+        //console.log("x after move", this.x)
         
     }
     movey(y){
         this.prevy = this.y
         this.y += y
+        //console.log("y after move", this.y)
     }
     move(vector){
         this.prevx = this.x
@@ -295,14 +326,20 @@ class Palla{
     }
     handleObstacleCollision(rect) {
         // Check for collision with the obstacle
-        if (RectCircleColliding(this, rect)) {
-            let NearestX = Math.max(rect.x, Math.min(this.x+1, rect.x + rect.width));
-            let NearestY = Math.max(rect.y, Math.min(this.y+1, rect.y + rect.height));
+        if (rect.hit, RectCircleColliding(this, rect)) {
+            let NearestX = Math.max(rect.x, Math.min(this.x, rect.x + rect.width));
+            let NearestY = Math.max(rect.y, Math.min(this.y, rect.y + rect.height));
 
-            console.log("x",this.x, NearestX)
-            console.log("y", this.y, NearestY)
+            if(rect.hit){
+                rect.hit = false;
+            }
+
+            if(this.speed.mag() > 1) {
+                playSound(boing);
+            }   
+
+        
             let dist = new Vector(this.x - NearestX, this.y - NearestY);
-            console.log("dist",dist)
             let dnormal = new Vector(-dist.y, dist.x);
             //if (dist.dot({x: this.x, y:this.y}) < 0) { 
                 let normal_angle = Math.atan2(dnormal.y, dnormal.x);
@@ -313,20 +350,18 @@ class Palla{
             
             
             let penetrationDepth = this.r - dist.mag();
-            console.log("dist", dist)
-            console.log("norma", dist.mag())
-            //console.log("penetrationDepth", penetrationDepth);
-            //console.log("normalizzato", dist.normalize())
             let penetrationVector = dist.normalize().mult(penetrationDepth);
-            console.log("dist2", dist);
-            console.log( "penetration", penetrationVector)
-            //console.log("x, y", this.x, this.y);
-            this.x += penetrationVector.x
-            this.y += penetrationVector.y
-            //console.log("x, y", this.x, this.y);
-            console.log("dist3", dist);
-
+            let unstick = 0.3;
+            this.x += penetrationVector.x+ (penetrationVector.x > 0 ? unstick : -unstick);
+            this.y += penetrationVector.y+ (penetrationVector.y > 0 ? unstick : -unstick);
+        
         }
+    }
+
+    handleCollisions(){
+        obstacles.forEach(obstacle => {
+            this.handleObstacleCollision(obstacle); // Assuming you have a draw method for obstacles
+        });    
     }
     
     gravity(){
@@ -349,24 +384,64 @@ class Palla{
         this.speed.y = roundNum(this.speed.y, 3)
     }
     handle(){
+        this.show();
         this.gravity();
         this.friction();
         
-        if(Math.abs(this.speed.x) > 0.2){
-            this.movex(this.speed.x);
+        let expectedMove = new Vector(this.speed.x, this.speed.y);
+        let normalPosition1 = expectedMove.normal1().normalize().mult(this.r)
+        //normalPosition1.drawline(this.x, this.y);
+        let normalPosition2 = expectedMove.normal2().normalize().mult(this.r)
+        //normalPosition2.drawline(this.x, this.y);
+        let start = new Vector(this.x+expectedMove.copy().normalize().mult(this.r).x, this.y+expectedMove.copy().normalize().mult(this.r).y)
+        let start1 = new Vector(this.x+normalPosition1.x, this.y + normalPosition1.y);
+        let start2 = new Vector(this.x+normalPosition2.x, this.y + normalPosition2.y);
+        this.speed.drawline(start.x, start.y)
+        this.speed.drawline(start1.x, start1.y)
+        this.speed.drawline(start2.x, start2.y)
+        let move = expectedMove.copy();
+        obstacles.forEach(obstacle => {
+            // Calculate potential movement vectors
+            let newMove = calculateMovement(start.x, start.y, expectedMove.x, expectedMove.y, obstacle);
+            let newMove1 = calculateMovement(start1.x, start1.y, expectedMove.x, expectedMove.y, obstacle);
+            let newMove2 = calculateMovement(start2.x, start2.y, expectedMove.x, expectedMove.y, obstacle);
+        
+            // Check for collision and update expected movement vector
+            updateExpectedMove(newMove, expectedMove, obstacle);
+            updateExpectedMove(newMove1, expectedMove, obstacle);
+            updateExpectedMove(newMove2, expectedMove, obstacle);
+        });
+        
+        // Function to calculate movement vector
+        function calculateMovement(x, y, moveX, moveY, obstacle) {
+            return lineRect(x, y, x + moveX, y + moveY, obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+        }
+        
+        // Function to update expected movement vector based on collision
+        function updateExpectedMove(newMove, expectedMove, obstacle) {
+            if (newMove && newMove.mag() < expectedMove.mag()) {
+                expectedMove.x = newMove.x;
+                expectedMove.y = newMove.y;
+                obstacle.hit = true;
+            }
+        }        
+        if(!expectedMove.equals(move)){
+            console.log("expected", move, "actual", expectedMove)
+        }
+         
+
+        if(Math.abs(this.speed.x) > 0.1){
+            this.movex(expectedMove.x);
         }else{
             this.speed.x = 0;
         }
-        if(Math.abs(this.speed.y) > 0.2){
-            this.movey(this.speed.y);
+        if(Math.abs(this.speed.y) > 0.3){
+            this.movey(expectedMove.y);
         }else if(Math.abs(this.y - (canvas.height - this.r))<1){
             this.speed.y = 0;
         }
         this.bounce(this.bounciness);
-        obstacles.forEach(obstacle => {
-            this.handleObstacleCollision(obstacle); // Assuming you have a draw method for obstacles
-        });
-        this.show();
+        this.handleCollisions();
         
     }
 }
